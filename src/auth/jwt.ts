@@ -23,7 +23,7 @@
  * ```
  */
 
-import { base64UrlEncode } from '../utils/crypto.js';
+import { base64UrlEncode, base64UrlEncodeBytes } from '../utils/crypto.js';
 
 /**
  * JWT payload for test tokens
@@ -93,9 +93,8 @@ export async function createTestJWT(
 
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(signatureInput));
 
-  const encodedSignature = base64UrlEncode(
-    String.fromCharCode(...new Uint8Array(signature))
-  );
+  // Use base64UrlEncodeBytes for binary signature data to avoid UTF-8 encoding issues
+  const encodedSignature = base64UrlEncodeBytes(new Uint8Array(signature));
 
   return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
 }
