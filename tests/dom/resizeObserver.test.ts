@@ -8,6 +8,52 @@ import {
   createMockResizeObserver,
 } from '../../src/dom/resizeObserver.js';
 
+// Store original DOMRect for cleanup
+const originalDOMRect = globalThis.DOMRect;
+
+// Mock DOMRect for Node.js test environment
+class MockDOMRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+
+  constructor(x = 0, y = 0, width = 0, height = 0) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.top = y;
+    this.right = x + width;
+    this.bottom = y + height;
+    this.left = x;
+  }
+
+  toJSON() {
+    return {
+      x: this.x,
+      y: this.y,
+      width: this.width,
+      height: this.height,
+      top: this.top,
+      right: this.right,
+      bottom: this.bottom,
+      left: this.left,
+    };
+  }
+
+  static fromRect(rect?: DOMRectInit): MockDOMRect {
+    return new MockDOMRect(rect?.x, rect?.y, rect?.width, rect?.height);
+  }
+}
+
+// Setup DOMRect mock before all tests
+globalThis.DOMRect = MockDOMRect as unknown as typeof DOMRect;
+
 describe('MockResizeObserver', () => {
   beforeEach(() => {
     MockResizeObserver.clearInstances();
@@ -88,12 +134,26 @@ describe('MockResizeObserver', () => {
 
       expect(MockResizeObserver.instances).not.toContain(observer);
     });
+
+    it('handles disconnect being called twice without error', () => {
+      const callback = vi.fn();
+      const observer = new MockResizeObserver(callback);
+      const mockElement = { tagName: 'DIV' } as unknown as Element;
+      observer.observe(mockElement);
+
+      // First disconnect should work normally
+      observer.disconnect();
+      expect(MockResizeObserver.instances).not.toContain(observer);
+      expect(observer.getObservedElements()).toHaveLength(0);
+
+      // Second disconnect should not throw (index will be -1)
+      expect(() => observer.disconnect()).not.toThrow();
+    });
   });
 
   describe('trigger', () => {
-    // Note: These tests are skipped because the source implementation uses DOMRect
-    // which is not available in Node.js test environment without a DOM shim
-    it.skip('calls callback with mock entries', () => {
+    // Note: DOMRect is now mocked at the top of this file, enabling these tests
+    it('calls callback with mock entries', () => {
       const callback = vi.fn();
       const observer = new MockResizeObserver(callback);
       const mockElement = { tagName: 'DIV' } as unknown as Element;
@@ -109,7 +169,7 @@ describe('MockResizeObserver', () => {
       expect(entries[0].target).toBe(mockElement);
     });
 
-    it.skip('uses first observed element if target not specified', () => {
+    it('uses first observed element if target not specified', () => {
       const callback = vi.fn();
       const observer = new MockResizeObserver(callback);
       const mockElement = { tagName: 'DIV' } as unknown as Element;
@@ -121,7 +181,7 @@ describe('MockResizeObserver', () => {
       expect(entries[0].target).toBe(mockElement);
     });
 
-    it.skip('uses default dimensions if not specified', () => {
+    it('uses default dimensions if not specified', () => {
       const callback = vi.fn();
       const observer = new MockResizeObserver(callback);
       const mockElement = { tagName: 'DIV' } as unknown as Element;
@@ -134,7 +194,7 @@ describe('MockResizeObserver', () => {
       expect(entries[0].contentRect.height).toBe(100);
     });
 
-    it.skip('includes borderBoxSize, contentBoxSize, and devicePixelContentBoxSize', () => {
+    it('includes borderBoxSize, contentBoxSize, and devicePixelContentBoxSize', () => {
       const callback = vi.fn();
       const observer = new MockResizeObserver(callback);
       const mockElement = { tagName: 'DIV' } as unknown as Element;
@@ -148,7 +208,7 @@ describe('MockResizeObserver', () => {
       expect(entries[0].devicePixelContentBoxSize[0]).toEqual({ inlineSize: 50, blockSize: 75 });
     });
 
-    it.skip('passes observer as second argument', () => {
+    it('passes observer as second argument', () => {
       const callback = vi.fn();
       const observer = new MockResizeObserver(callback);
       const mockElement = { tagName: 'DIV' } as unknown as Element;
@@ -158,10 +218,62 @@ describe('MockResizeObserver', () => {
 
       expect(callback.mock.calls[0][1]).toBe(observer);
     });
+
+    it('uses document.body as fallback when no element is observed', () => {
+      // Mock document.body for Node.js environment
+      const originalBody = globalThis.document?.body;
+      const mockBody = { tagName: 'BODY' } as unknown as Element;
+      if (!globalThis.document) {
+        // @ts-expect-error - creating minimal document mock
+        globalThis.document = { body: mockBody };
+      } else {
+        Object.defineProperty(globalThis.document, 'body', {
+          value: mockBody,
+          configurable: true,
+        });
+      }
+
+      const callback = vi.fn();
+      const observer = new MockResizeObserver(callback);
+      // Note: no elements observed
+
+      observer.trigger([{ width: 200, height: 300 }]);
+
+      const entries = callback.mock.calls[0][0];
+      expect(entries[0].target).toBe(mockBody);
+
+      // Restore
+      if (originalBody !== undefined) {
+        Object.defineProperty(globalThis.document, 'body', {
+          value: originalBody,
+          configurable: true,
+        });
+      }
+    });
+
+    it('can trigger multiple entries at once', () => {
+      const callback = vi.fn();
+      const observer = new MockResizeObserver(callback);
+      const mockElement1 = { tagName: 'DIV' } as unknown as Element;
+      const mockElement2 = { tagName: 'SPAN' } as unknown as Element;
+      observer.observe(mockElement1);
+      observer.observe(mockElement2);
+
+      observer.trigger([
+        { width: 100, height: 100, target: mockElement1 },
+        { width: 200, height: 200, target: mockElement2 },
+      ]);
+
+      expect(callback).toHaveBeenCalledOnce();
+      const entries = callback.mock.calls[0][0];
+      expect(entries).toHaveLength(2);
+      expect(entries[0].target).toBe(mockElement1);
+      expect(entries[1].target).toBe(mockElement2);
+    });
   });
 
   describe('triggerAll', () => {
-    it.skip('triggers all active observers', () => {
+    it('triggers all active observers', () => {
       const callback1 = vi.fn();
       const callback2 = vi.fn();
       const observer1 = new MockResizeObserver(callback1);
@@ -175,6 +287,31 @@ describe('MockResizeObserver', () => {
 
       expect(callback1).toHaveBeenCalled();
       expect(callback2).toHaveBeenCalled();
+    });
+
+    it('triggers with same dimensions for all observers', () => {
+      const callback1 = vi.fn();
+      const callback2 = vi.fn();
+      const observer1 = new MockResizeObserver(callback1);
+      const observer2 = new MockResizeObserver(callback2);
+      const mockElement1 = { tagName: 'DIV' } as unknown as Element;
+      const mockElement2 = { tagName: 'SPAN' } as unknown as Element;
+      observer1.observe(mockElement1);
+      observer2.observe(mockElement2);
+
+      MockResizeObserver.triggerAll([{ width: 300, height: 400 }]);
+
+      const entries1 = callback1.mock.calls[0][0];
+      const entries2 = callback2.mock.calls[0][0];
+      expect(entries1[0].contentRect.width).toBe(300);
+      expect(entries1[0].contentRect.height).toBe(400);
+      expect(entries2[0].contentRect.width).toBe(300);
+      expect(entries2[0].contentRect.height).toBe(400);
+    });
+
+    it('does nothing when no observers exist', () => {
+      // Just ensure no errors are thrown
+      expect(() => MockResizeObserver.triggerAll([{ width: 100 }])).not.toThrow();
     });
   });
 

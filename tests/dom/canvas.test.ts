@@ -1,11 +1,14 @@
 /**
  * Tests for Canvas mock utilities
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   createMockCanvasContext,
   setupCanvasMocks,
 } from '../../src/dom/canvas.js';
+
+// Store original values for cleanup
+const originalHTMLCanvasElement = globalThis.HTMLCanvasElement;
 
 describe('createMockCanvasContext', () => {
   it('creates a mock context with all drawing methods', () => {
@@ -269,5 +272,235 @@ describe('setupCanvasMocks', () => {
 
   it('does not throw in any environment', () => {
     expect(() => setupCanvasMocks()).not.toThrow();
+  });
+
+  it('returns early when HTMLCanvasElement is undefined', () => {
+    // Ensure HTMLCanvasElement is undefined
+    const original = globalThis.HTMLCanvasElement;
+    // @ts-expect-error - intentionally setting to undefined for testing
+    globalThis.HTMLCanvasElement = undefined;
+
+    // Should not throw, just return early
+    expect(() => setupCanvasMocks()).not.toThrow();
+
+    // Restore
+    globalThis.HTMLCanvasElement = original;
+  });
+});
+
+describe('setupCanvasMocks with DOM environment', () => {
+  // Mock HTMLCanvasElement for testing
+  let mockPrototype: Record<string, unknown>;
+
+  beforeEach(() => {
+    // Create a mock HTMLCanvasElement class
+    mockPrototype = {};
+
+    class MockHTMLCanvasElement {
+      width = 300;
+      height = 150;
+
+      getContext(_contextId: string): unknown {
+        return null;
+      }
+
+      toDataURL(): string {
+        return '';
+      }
+
+      toBlob(_callback: BlobCallback): void {
+        // Default implementation
+      }
+    }
+
+    // Set prototype reference for mutation
+    mockPrototype.getContext = MockHTMLCanvasElement.prototype.getContext;
+    mockPrototype.toDataURL = MockHTMLCanvasElement.prototype.toDataURL;
+    mockPrototype.toBlob = MockHTMLCanvasElement.prototype.toBlob;
+
+    // Assign methods to prototype so setupCanvasMocks can override them
+    Object.defineProperty(MockHTMLCanvasElement.prototype, 'getContext', {
+      writable: true,
+      configurable: true,
+      value: mockPrototype.getContext,
+    });
+    Object.defineProperty(MockHTMLCanvasElement.prototype, 'toDataURL', {
+      writable: true,
+      configurable: true,
+      value: mockPrototype.toDataURL,
+    });
+    Object.defineProperty(MockHTMLCanvasElement.prototype, 'toBlob', {
+      writable: true,
+      configurable: true,
+      value: mockPrototype.toBlob,
+    });
+
+    // @ts-expect-error - setting up mock for testing
+    globalThis.HTMLCanvasElement = MockHTMLCanvasElement;
+  });
+
+  afterEach(() => {
+    // Restore original HTMLCanvasElement
+    if (originalHTMLCanvasElement) {
+      globalThis.HTMLCanvasElement = originalHTMLCanvasElement;
+    } else {
+      // @ts-expect-error - cleanup for Node environment
+      delete globalThis.HTMLCanvasElement;
+    }
+  });
+
+  it('mocks getContext to return 2d context', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+    const ctx = canvas.getContext('2d');
+
+    expect(ctx).not.toBeNull();
+    expect(ctx.fillRect).toBeDefined();
+    expect(ctx.strokeRect).toBeDefined();
+    expect(ctx.clearRect).toBeDefined();
+  });
+
+  it('getContext returns null for non-2d contexts', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+
+    expect(canvas.getContext('webgl')).toBeNull();
+    expect(canvas.getContext('webgl2')).toBeNull();
+    expect(canvas.getContext('bitmaprenderer')).toBeNull();
+  });
+
+  it('mocked context uses canvas dimensions', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+    canvas.width = 500;
+    canvas.height = 400;
+
+    const ctx = canvas.getContext('2d');
+
+    expect(ctx.canvas.width).toBe(500);
+    expect(ctx.canvas.height).toBe(400);
+  });
+
+  it('mocked context uses default dimensions for unset canvas', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+    // width and height are 0 or undefined when not set, mock uses defaults
+    canvas.width = 0;
+    canvas.height = 0;
+
+    const ctx = canvas.getContext('2d');
+
+    expect(ctx.canvas.width).toBe(300);
+    expect(ctx.canvas.height).toBe(150);
+  });
+
+  it('mocks toDataURL to return mock data URL', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+    const dataUrl = canvas.toDataURL();
+
+    expect(dataUrl).toBe('data:image/png;base64,mock');
+  });
+
+  it('mocks toBlob to call callback with mock blob', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+    const callback = vi.fn();
+
+    canvas.toBlob(callback);
+
+    expect(callback).toHaveBeenCalledOnce();
+    const blob = callback.mock.calls[0][0];
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.type).toBe('image/png');
+  });
+
+  it('mocked context has all expected methods callable', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+    const ctx = canvas.getContext('2d');
+
+    // Test all methods don't throw
+    expect(() => {
+      ctx.fillRect(0, 0, 100, 100);
+      ctx.strokeRect(0, 0, 100, 100);
+      ctx.clearRect(0, 0, 100, 100);
+      ctx.fillText('test', 0, 0);
+      ctx.strokeText('test', 0, 0);
+      ctx.beginPath();
+      ctx.closePath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(100, 100);
+      ctx.arc(50, 50, 25, 0, Math.PI * 2);
+      ctx.arcTo(0, 0, 100, 100, 50);
+      ctx.bezierCurveTo(0, 0, 50, 50, 100, 100);
+      ctx.quadraticCurveTo(50, 50, 100, 100);
+      ctx.rect(0, 0, 100, 100);
+      ctx.fill();
+      ctx.stroke();
+      ctx.clip();
+      ctx.save();
+      ctx.restore();
+      ctx.scale(2, 2);
+      ctx.rotate(Math.PI);
+      ctx.translate(10, 10);
+      ctx.transform(1, 0, 0, 1, 0, 0);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.resetTransform();
+      ctx.drawImage(canvas, 0, 0);
+      ctx.putImageData({} as ImageData, 0, 0);
+      ctx.setLineDash([5, 5]);
+    }).not.toThrow();
+  });
+
+  it('mocked context measureText works', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+    const ctx = canvas.getContext('2d');
+
+    const measurement = ctx.measureText('Hello');
+
+    expect(measurement.width).toBe(5 * 8);
+  });
+
+  it('mocked context gradient methods work', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+    const ctx = canvas.getContext('2d');
+
+    const linearGradient = ctx.createLinearGradient(0, 0, 100, 100);
+    expect(linearGradient.addColorStop).toBeDefined();
+    expect(() => linearGradient.addColorStop(0, 'red')).not.toThrow();
+
+    const radialGradient = ctx.createRadialGradient(50, 50, 0, 50, 50, 50);
+    expect(radialGradient.addColorStop).toBeDefined();
+
+    const pattern = ctx.createPattern(canvas, 'repeat');
+    expect(pattern).toBeNull();
+  });
+
+  it('mocked context image data methods work', () => {
+    setupCanvasMocks();
+
+    const canvas = new globalThis.HTMLCanvasElement();
+    const ctx = canvas.getContext('2d');
+
+    const createdData = ctx.createImageData(10, 10);
+    expect(createdData.data).toBeInstanceOf(Uint8ClampedArray);
+    expect(createdData.width).toBe(10);
+    expect(createdData.height).toBe(10);
+
+    const retrievedData = ctx.getImageData(0, 0, 10, 10);
+    expect(retrievedData.data).toBeInstanceOf(Uint8ClampedArray);
+    expect(retrievedData.data.length).toBe(400);
   });
 });
