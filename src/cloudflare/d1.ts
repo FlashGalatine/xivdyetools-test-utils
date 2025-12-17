@@ -107,6 +107,12 @@ export interface MockD1Database {
 
   /** Current mock function (if any) */
   _mockFn?: QueryMockFn;
+
+  /**
+   * Set the ban status for ban-check middleware tests
+   * @param isBanned - true to simulate banned user, false or undefined for not banned
+   */
+  _setBanStatus: (isBanned: boolean) => void;
 }
 
 /**
@@ -121,6 +127,7 @@ export function createMockD1Database(): MockD1Database {
   const queries: string[] = [];
   const bindings: unknown[][] = [];
   let mockFn: QueryMockFn | undefined;
+  let banStatus: boolean | undefined;
 
   const createDefaultMeta = (): D1Meta => ({
     duration: 0,
@@ -144,6 +151,15 @@ export function createMockD1Database(): MockD1Database {
 
       first: async <T = unknown>() => {
         queries.push(query);
+        // Special handling for banned_users queries to prevent false ban detection
+        // Use _setBanStatus(true) to simulate a banned user in tests
+        if (query.includes('banned_users')) {
+          if (banStatus === true) {
+            return { 1: 1 } as T; // User is banned
+          }
+          // Default: user not banned (don't call mockFn to avoid side effects)
+          return null;
+        }
         if (mockFn) {
           const result = mockFn(query, boundValues);
           // If result is an array, return first element
@@ -262,10 +278,15 @@ export function createMockD1Database(): MockD1Database {
       queries.length = 0;
       bindings.length = 0;
       mockFn = undefined;
+      banStatus = undefined;
     },
 
     get _mockFn() {
       return mockFn;
+    },
+
+    _setBanStatus: (isBanned: boolean) => {
+      banStatus = isBanned;
     },
   };
 
