@@ -1,6 +1,6 @@
 {
   "name": "@xivdyetools/test-utils",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Shared testing utilities for the xivdyetools ecosystem",
   "author": "XIV Dye Tools",
   "license": "MIT",
@@ -60,7 +60,7 @@
     }
   },
   "dependencies": {
-    "@xivdyetools/types": "^1.0.0"
+    "@xivdyetools/types": "^1.1.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241205.0",
