@@ -19,7 +19,8 @@ describe('createMockVoteRow', () => {
   it('creates a vote row with defaults', () => {
     const row = createMockVoteRow();
 
-    expect(row.preset_id).toBe('preset-1');
+    // TEST-DESIGN-001: IDs are now random for parallel test safety
+    expect(row.preset_id).toMatch(/^preset-[a-z0-9]{8}$/);
     expect(row.user_discord_id).toBe('123456789');
     expect(row.created_at).toBeDefined();
   });
@@ -50,7 +51,8 @@ describe('createMockVote', () => {
   it('creates a vote with defaults', () => {
     const vote = createMockVote();
 
-    expect(vote.preset_id).toBe('preset-1');
+    // TEST-DESIGN-001: IDs are now random for parallel test safety
+    expect(vote.preset_id).toMatch(/^preset-[a-z0-9]{8}$/);
     expect(vote.user_discord_id).toBe('123456789');
     expect(vote.created_at).toBeDefined();
   });

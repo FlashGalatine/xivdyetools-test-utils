@@ -20,7 +20,8 @@ describe('createMockCategoryRow', () => {
   it('creates a category row with defaults', () => {
     const row = createMockCategoryRow();
 
-    expect(row.id).toBe('category-1');
+    // TEST-DESIGN-001: IDs are now random for parallel test safety
+    expect(row.id).toMatch(/^category-[a-z0-9]{8}$/);
     expect(row.name).toBe('Test Category');
     expect(row.description).toBe('A test category description');
     expect(row.icon).toBeNull();
@@ -59,7 +60,8 @@ describe('createMockCategory', () => {
   it('creates a category with defaults', () => {
     const category = createMockCategory();
 
-    expect(category.id).toBe('category-1');
+    // TEST-DESIGN-001: IDs are now random for parallel test safety
+    expect(category.id).toMatch(/^category-[a-z0-9]{8}$/);
     expect(category.name).toBe('Test Category');
     expect(category.description).toBe('A test category description');
     expect(category.icon).toBeNull();

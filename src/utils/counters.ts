@@ -1,15 +1,58 @@
 /**
- * Auto-increment counter management for test factories
+ * ID generation utilities for test factories
  *
- * Provides unique IDs for test objects while allowing reset between tests
- * to ensure test isolation.
+ * TEST-DESIGN-001: Uses random IDs to prevent race conditions in parallel test execution.
+ * Sequential counters are kept for backward compatibility but random IDs are now the default.
+ *
+ * @example
+ * ```typescript
+ * // Recommended: Random IDs (safe for parallel tests)
+ * const id = randomStringId('preset'); // 'preset-a7x9k2m'
+ *
+ * // Legacy: Sequential IDs (call resetCounters() in beforeEach for isolation)
+ * const seqId = nextStringId('preset'); // 'preset-1'
+ * ```
  */
 
-// Counter storage
+// Counter storage (legacy, for backward compatibility)
 const counters: Record<string, number> = {};
 
 /**
- * Get the next value for a named counter
+ * Generate a random alphanumeric string
+ * @param length - Length of the random string (default: 8)
+ * @returns Random alphanumeric string
+ */
+function randomAlphanumeric(length: number = 8): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+/**
+ * Generate a random numeric ID
+ * TEST-DESIGN-001: Safe for parallel test execution
+ * @returns A random positive integer
+ */
+export function randomId(): number {
+  return Math.floor(Math.random() * 900000000) + 100000000; // 9-digit number
+}
+
+/**
+ * Generate a random string ID with prefix
+ * TEST-DESIGN-001: Safe for parallel test execution
+ * @param prefix - The ID prefix (e.g., 'preset', 'category')
+ * @returns A string ID like 'preset-a7x9k2m'
+ */
+export function randomStringId(prefix: string): string {
+  return `${prefix}-${randomAlphanumeric(8)}`;
+}
+
+/**
+ * Get the next value for a named counter (legacy)
+ * @deprecated Use randomId() for parallel-safe ID generation
  * @param name - The counter name (e.g., 'preset', 'category')
  * @returns The next sequential value
  */
@@ -22,12 +65,14 @@ export function nextId(name: string): number {
 }
 
 /**
- * Get a string ID with prefix
+ * Get a string ID with prefix (legacy)
+ * TEST-DESIGN-001: Now uses random IDs by default for parallel-safe execution
  * @param prefix - The ID prefix (e.g., 'preset', 'category')
- * @returns A string ID like 'preset-1', 'category-2'
+ * @returns A string ID like 'preset-a7x9k2m'
  */
 export function nextStringId(prefix: string): string {
-  return `${prefix}-${nextId(prefix)}`;
+  // TEST-DESIGN-001: Use random IDs by default for parallel test safety
+  return randomStringId(prefix);
 }
 
 /**

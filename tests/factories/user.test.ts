@@ -20,7 +20,8 @@ describe('createMockUserRow', () => {
   it('creates a user row with defaults', () => {
     const row = createMockUserRow();
 
-    expect(row.id).toBe('user-1');
+    // TEST-DESIGN-001: IDs are now random for parallel test safety
+    expect(row.id).toMatch(/^user-[a-z0-9]{8}$/);
     expect(row.discord_id).toBe('123456789');
     expect(row.xivauth_id).toBeNull();
     expect(row.auth_provider).toBe('discord');
@@ -52,7 +53,8 @@ describe('createMockUser', () => {
   it('creates a user with defaults', () => {
     const user = createMockUser();
 
-    expect(user.id).toBe('user-1');
+    // TEST-DESIGN-001: IDs are now random for parallel test safety
+    expect(user.id).toMatch(/^user-[a-z0-9]{8}$/);
     expect(user.username).toBe('TestUser');
     expect(user.global_name).toBe('Test User');
     expect(user.avatar).toBeNull();

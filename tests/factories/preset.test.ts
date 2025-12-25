@@ -44,7 +44,8 @@ describe('createMockPresetRow', () => {
   it('creates a preset row with defaults', () => {
     const row = createMockPresetRow();
 
-    expect(row.id).toBe('preset-1');
+    // TEST-DESIGN-001: IDs are now random for parallel test safety
+    expect(row.id).toMatch(/^preset-[a-z0-9]{8}$/);
     expect(row.name).toBe('Test Preset');
     expect(row.description).toBe('A test preset description');
     expect(row.category_id).toBe('aesthetics');
@@ -93,7 +94,8 @@ describe('createMockPreset', () => {
   it('creates a preset with defaults', () => {
     const preset = createMockPreset();
 
-    expect(preset.id).toBe('preset-1');
+    // TEST-DESIGN-001: IDs are now random for parallel test safety
+    expect(preset.id).toMatch(/^preset-[a-z0-9]{8}$/);
     expect(preset.name).toBe('Test Preset');
     expect(preset.description).toBe('A test preset description');
     expect(preset.category_id).toBe('aesthetics');

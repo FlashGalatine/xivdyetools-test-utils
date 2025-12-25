@@ -2,15 +2,16 @@
  * Vote factory functions for testing
  *
  * Provides functions to create mock votes.
+ * TEST-DESIGN-001: Uses random IDs for parallel test safety.
  *
  * @example
  * ```typescript
- * const vote = createMockVote({ preset_id: 'preset-1' });
+ * const vote = createMockVote({ preset_id: 'preset-xyz' });
  * const votes = createMockVotes(5, { user_discord_id: '123' });
  * ```
  */
 
-import { nextId } from '../utils/counters.js';
+import { randomStringId } from '../utils/counters.js';
 
 /**
  * Vote database row type (as stored in D1)
@@ -24,14 +25,14 @@ export interface VoteRow {
 /**
  * Creates a mock vote row
  *
+ * TEST-DESIGN-001: Uses random preset IDs for parallel test safety.
+ *
  * @param overrides - Optional overrides for the default values
  * @returns A VoteRow object
  */
 export function createMockVoteRow(overrides: Partial<VoteRow> = {}): VoteRow {
-  const voteNum = nextId('vote');
-
   return {
-    preset_id: `preset-${voteNum}`,
+    preset_id: randomStringId('preset'),
     user_discord_id: '123456789',
     created_at: new Date().toISOString(),
     ...overrides,
