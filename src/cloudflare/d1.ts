@@ -8,10 +8,14 @@
  * ```typescript
  * const db = createMockD1Database();
  *
- * // Setup mock responses
+ * // Setup mock responses using regex patterns (TEST-DESIGN-002)
+ * // Use /^\s*SELECT/i to anchor to start and be case-insensitive
  * db._setupMock((query, bindings) => {
- *   if (query.includes('SELECT') && query.includes('presets')) {
+ *   if (/^\s*SELECT/i.test(query) && query.includes('presets')) {
  *     return [{ id: 'preset-1', name: 'Test Preset' }];
+ *   }
+ *   if (/^\s*INSERT/i.test(query)) {
+ *     return { meta: { changes: 1, last_row_id: 1 } };
  *   }
  *   return null;
  * });
