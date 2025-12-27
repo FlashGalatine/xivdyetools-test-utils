@@ -139,6 +139,20 @@ const params = new URLSearchParams({
 
 This package includes full TypeScript support. Cloudflare Workers types are included via `@cloudflare/workers-types`.
 
+## Connect With Me
+
+**Flash Galatine** | Balmung (Crystal)
+
+🎮 **FFXIV**: [Lodestone Character](https://na.finalfantasyxiv.com/lodestone/character/7677106/)
+📝 **Blog**: [Project Galatine](https://blog.projectgalatine.com/)
+💻 **GitHub**: [@FlashGalatine](https://github.com/FlashGalatine)
+🐦 **X / Twitter**: [@AsheJunius](https://x.com/AsheJunius)
+📺 **Twitch**: [flashgalatine](https://www.twitch.tv/flashgalatine)
+🌐 **BlueSky**: [projectgalatine.com](https://bsky.app/profile/projectgalatine.com)
+❤️ **Patreon**: [ProjectGalatine](https://patreon.com/ProjectGalatine)
+☕ **Ko-Fi**: [flashgalatine](https://ko-fi.com/flashgalatine)
+💬 **Discord**: [Join Server](https://discord.gg/5VUSKTZCe5)
+
 ## License
 
-MIT
+MIT © 2025 Flash Galatine
