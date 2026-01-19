@@ -80,20 +80,34 @@ export function createMockKV(): MockKVNamespace {
   const metadata = new Map<string, unknown>();
 
   /**
-   * Check if a key has expired
+   * Check if a key has expired using a snapshot timestamp
+   * This prevents race conditions when time advances during async operations
+   *
+   * @param key - The key to check
+   * @param nowSeconds - Snapshot of current time in seconds (use Date.now() / 1000)
    */
-  const isExpired = (key: string): boolean => {
+  const isExpiredAt = (key: string, nowSeconds: number): boolean => {
     const expiration = ttls.get(key);
     if (expiration === undefined) return false;
-    return Date.now() > expiration * 1000; // TTL is in seconds, convert to ms
+    return nowSeconds > expiration;
+  };
+
+  /**
+   * Clean up an expired key from all stores
+   */
+  const cleanupKey = (key: string): void => {
+    store.delete(key);
+    ttls.delete(key);
+    metadata.delete(key);
   };
 
   return {
     get: async (key: string, options?: { type?: 'text' | 'json' | 'arrayBuffer' | 'stream' }) => {
-      if (isExpired(key)) {
-        store.delete(key);
-        ttls.delete(key);
-        metadata.delete(key);
+      // Capture timestamp once to prevent race conditions with mocked time
+      const nowSeconds = Date.now() / 1000;
+
+      if (isExpiredAt(key, nowSeconds)) {
+        cleanupKey(key);
         return null;
       }
 
@@ -139,22 +153,35 @@ export function createMockKV(): MockKVNamespace {
     },
 
     list: async (options?: { prefix?: string; limit?: number; cursor?: string }) => {
+      // Capture timestamp once for consistent TTL checks across all keys
+      const nowSeconds = Date.now() / 1000;
       const keys: KVListKey[] = [];
       const prefix = options?.prefix ?? '';
       const limit = options?.limit ?? 1000;
+      const expiredKeys: string[] = [];
 
       for (const [key, _value] of store.entries()) {
-        if (key.startsWith(prefix) && !isExpired(key)) {
-          keys.push({
-            name: key,
-            expiration: ttls.get(key),
-            metadata: metadata.get(key),
-          });
+        if (key.startsWith(prefix)) {
+          if (isExpiredAt(key, nowSeconds)) {
+            // Collect expired keys for cleanup after iteration
+            expiredKeys.push(key);
+          } else {
+            keys.push({
+              name: key,
+              expiration: ttls.get(key),
+              metadata: metadata.get(key),
+            });
 
-          if (keys.length >= limit) {
-            break;
+            if (keys.length >= limit) {
+              break;
+            }
           }
         }
+      }
+
+      // Clean up expired keys after iteration to avoid modifying map during iteration
+      for (const key of expiredKeys) {
+        cleanupKey(key);
       }
 
       return {
@@ -165,10 +192,11 @@ export function createMockKV(): MockKVNamespace {
     },
 
     getWithMetadata: async <T = unknown>(key: string) => {
-      if (isExpired(key)) {
-        store.delete(key);
-        ttls.delete(key);
-        metadata.delete(key);
+      // Capture timestamp once to prevent race conditions with mocked time
+      const nowSeconds = Date.now() / 1000;
+
+      if (isExpiredAt(key, nowSeconds)) {
+        cleanupKey(key);
         return { value: null, metadata: null, cacheStatus: null };
       }
 
