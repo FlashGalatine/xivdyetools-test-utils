@@ -87,6 +87,17 @@ export interface MockD1DatabaseSession {
 }
 
 /**
+ * Configuration options for the mock D1 database
+ */
+export interface MockD1DatabaseConfig {
+  /** Maximum number of queries to keep in history (prevents memory leaks). Default: 1000 */
+  maxQueryHistory?: number;
+}
+
+/** Default maximum query history size */
+const DEFAULT_MAX_QUERY_HISTORY = 1000;
+
+/**
  * Extended mock D1 database with test helpers
  */
 export interface MockD1Database {
@@ -97,10 +108,10 @@ export interface MockD1Database {
   /** Start a session - returns a session object with same query methods */
   withSession: (constraintOrBookmark?: string) => MockD1DatabaseSession;
 
-  /** Array of all queries executed (for assertions) */
+  /** Array of all queries executed (for assertions). Limited to maxQueryHistory entries. */
   _queries: string[];
 
-  /** Array of all binding arrays passed to queries */
+  /** Array of all binding arrays passed to queries. Limited to maxQueryHistory entries. */
   _bindings: unknown[][];
 
   /** Setup a mock function to return custom responses */
@@ -117,6 +128,9 @@ export interface MockD1Database {
    * @param isBanned - true to simulate banned user, false or undefined for not banned
    */
   _setBanStatus: (isBanned: boolean) => void;
+
+  /** Set the maximum query history size (for memory management) */
+  _setMaxQueryHistory: (max: number) => void;
 }
 
 /**
@@ -125,13 +139,29 @@ export interface MockD1Database {
  * The mock tracks all queries and bindings for assertions, and supports
  * custom response functions for simulating database behavior.
  *
+ * TEST-OPT-003 FIX: Added maxQueryHistory config to prevent unbounded memory growth
+ * in long-running test suites. Default is 1000 queries.
+ *
+ * @param config - Optional configuration for the mock database
  * @returns A mock D1 database that can be cast to D1Database
  */
-export function createMockD1Database(): MockD1Database {
+export function createMockD1Database(config?: MockD1DatabaseConfig): MockD1Database {
   const queries: string[] = [];
   const bindings: unknown[][] = [];
   let mockFn: QueryMockFn | undefined;
   let banStatus: boolean | undefined;
+  let maxQueryHistory = config?.maxQueryHistory ?? DEFAULT_MAX_QUERY_HISTORY;
+
+  /**
+   * Enforce max query history limit using FIFO eviction
+   * TEST-OPT-003 FIX: Prevents unbounded memory growth
+   */
+  const enforceMaxHistory = (): void => {
+    while (queries.length > maxQueryHistory) {
+      queries.shift();
+      bindings.shift();
+    }
+  };
 
   const createDefaultMeta = (): D1Meta => ({
     duration: 0,
@@ -155,6 +185,7 @@ export function createMockD1Database(): MockD1Database {
 
       first: async <T = unknown>() => {
         queries.push(query);
+        enforceMaxHistory();
         // Special handling for banned_users queries to prevent false ban detection
         // Use _setBanStatus(true) to simulate a banned user in tests
         if (query.includes('banned_users')) {
@@ -177,6 +208,7 @@ export function createMockD1Database(): MockD1Database {
 
       all: async <T = unknown>(): Promise<D1Result<T>> => {
         queries.push(query);
+        enforceMaxHistory();
         if (mockFn) {
           const result = mockFn(query, boundValues);
           if (Array.isArray(result)) {
@@ -192,6 +224,7 @@ export function createMockD1Database(): MockD1Database {
 
       run: async <T = unknown>(): Promise<D1Result<T>> => {
         queries.push(query);
+        enforceMaxHistory();
         if (mockFn) {
           const result = mockFn(query, boundValues);
           if (result && typeof result === 'object' && 'meta' in result) {
@@ -207,6 +240,7 @@ export function createMockD1Database(): MockD1Database {
 
       raw: async <T = unknown[]>(_options?: { columnNames?: boolean }): Promise<T> => {
         queries.push(query);
+        enforceMaxHistory();
         if (mockFn) {
           const result = mockFn(query, boundValues);
           if (Array.isArray(result)) {
@@ -242,6 +276,7 @@ export function createMockD1Database(): MockD1Database {
 
     exec: async (query: string) => {
       queries.push(query);
+      enforceMaxHistory();
       return { count: 1, duration: 0 };
     },
 
@@ -265,6 +300,7 @@ export function createMockD1Database(): MockD1Database {
         },
         exec: async (query: string) => {
           queries.push(query);
+          enforceMaxHistory();
           return { count: 1, duration: 0 };
         },
         getBookmark: () => constraintOrBookmark ?? 'mock-bookmark',
@@ -291,6 +327,12 @@ export function createMockD1Database(): MockD1Database {
 
     _setBanStatus: (isBanned: boolean) => {
       banStatus = isBanned;
+    },
+
+    _setMaxQueryHistory: (max: number) => {
+      maxQueryHistory = max;
+      // Immediately enforce the new limit
+      enforceMaxHistory();
     },
   };
 
