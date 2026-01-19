@@ -35,18 +35,42 @@ export function base64UrlEncodeBytes(bytes: Uint8Array): string {
 }
 
 /**
- * Decode a Base64URL string
+ * Decode a Base64URL string to bytes
  *
  * @param str - The Base64URL string to decode
- * @returns Decoded string
+ * @returns Decoded bytes as Uint8Array
  */
-export function base64UrlDecode(str: string): string {
+export function base64UrlDecodeBytes(str: string): Uint8Array {
   // Add padding if needed
   let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
   while (base64.length % 4) {
     base64 += '=';
   }
-  return atob(base64);
+
+  // Decode to binary string
+  const binary = atob(base64);
+
+  // Convert binary string to Uint8Array
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
+/**
+ * Decode a Base64URL string
+ *
+ * NOTE: For proper UTF-8 roundtrip with base64UrlEncode(), this function
+ * decodes the binary bytes back to a UTF-8 string using TextDecoder.
+ *
+ * @param str - The Base64URL string to decode
+ * @returns Decoded UTF-8 string
+ */
+export function base64UrlDecode(str: string): string {
+  const bytes = base64UrlDecodeBytes(str);
+  return new TextDecoder().decode(bytes);
 }
 
 /**

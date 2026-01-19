@@ -48,12 +48,20 @@ export interface MockResponseConfig {
 }
 
 /**
+ * Configuration options for the mock fetcher
+ */
+export interface MockFetcherConfig {
+  /** Maximum number of calls to keep in history (prevents memory leaks). Default: 1000 */
+  maxCallHistory?: number;
+}
+
+/**
  * Extended mock Fetcher with test helpers
  */
 export interface MockFetcher {
   fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-  /** Array of all fetch calls made (for assertions) */
+  /** Array of all fetch calls made (for assertions). Limited to maxCallHistory entries. */
   _calls: MockFetchCall[];
 
   /** Setup a response for a specific path pattern */
@@ -67,7 +75,13 @@ export interface MockFetcher {
 
   /** Set default response for unmatched requests */
   _setDefaultResponse: (response: unknown, config?: Omit<MockResponseConfig, 'body'>) => void;
+
+  /** Set the maximum call history size (for memory management) */
+  _setMaxCallHistory: (max: number) => void;
 }
+
+/** Default maximum call history size */
+const DEFAULT_MAX_CALL_HISTORY = 1000;
 
 /**
  * Creates a mock Fetcher for testing Service Bindings
@@ -75,9 +89,10 @@ export interface MockFetcher {
  * The mock tracks all fetch calls and supports configuring
  * responses for specific URL patterns.
  *
+ * @param config - Optional configuration for the mock fetcher
  * @returns A mock Fetcher that can be cast to Fetcher
  */
-export function createMockFetcher(): MockFetcher {
+export function createMockFetcher(config?: MockFetcherConfig): MockFetcher {
   const calls: MockFetchCall[] = [];
   const responses = new Map<string | RegExp, MockResponseConfig>();
   let customHandler: ((url: string, init?: RequestInit) => Promise<Response> | Response) | undefined;
@@ -85,6 +100,7 @@ export function createMockFetcher(): MockFetcher {
     status: 200,
     body: { success: true },
   };
+  let maxCallHistory = config?.maxCallHistory ?? DEFAULT_MAX_CALL_HISTORY;
 
   const createResponse = (config: MockResponseConfig): Response => {
     const { status = 200, headers = {}, body } = config;
@@ -139,7 +155,7 @@ export function createMockFetcher(): MockFetcher {
         }
       }
 
-      // Record the call
+      // Record the call (with memory limit enforcement)
       calls.push({
         url,
         method,
@@ -147,6 +163,11 @@ export function createMockFetcher(): MockFetcher {
         body: init?.body?.toString(),
         timestamp: Date.now(),
       });
+
+      // Enforce max history limit (FIFO eviction) to prevent memory leaks
+      while (calls.length > maxCallHistory) {
+        calls.shift();
+      }
 
       // Use custom handler if provided
       if (customHandler) {
@@ -188,6 +209,14 @@ export function createMockFetcher(): MockFetcher {
         ...config,
         body: response,
       };
+    },
+
+    _setMaxCallHistory: (max: number) => {
+      maxCallHistory = max;
+      // Immediately enforce the new limit
+      while (calls.length > maxCallHistory) {
+        calls.shift();
+      }
     },
   };
 }
