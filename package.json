@@ -67,7 +67,7 @@
     "@cloudflare/workers-types": "^4.20241205.0",
     "@testing-library/dom": "^10.0.0",
     "@vitest/coverage-v8": "^4.0.15",
-    "rimraf": "^5.0.5",
+    "rimraf": "^6.1.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.15"
   },
