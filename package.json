@@ -1,6 +1,6 @@
 {
   "name": "@xivdyetools/test-utils",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Shared testing utilities for the xivdyetools ecosystem",
   "author": "XIV Dye Tools",
   "license": "MIT",
@@ -60,6 +60,7 @@
     }
   },
   "dependencies": {
+    "@xivdyetools/crypto": "file:../xivdyetools-crypto",
     "@xivdyetools/types": "^1.1.1"
   },
   "devDependencies": {

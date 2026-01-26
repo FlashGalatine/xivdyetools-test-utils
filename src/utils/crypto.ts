@@ -1,100 +1,14 @@
 /**
  * Cryptographic utilities for test helpers
  *
- * Provides Base64URL encoding for JWT creation and other crypto operations.
+ * REFACTOR-001: Re-exports from @xivdyetools/crypto to consolidate implementations
  */
 
-/**
- * Encode a string to Base64URL format (RFC 4648)
- * Used for JWT header and payload encoding
- *
- * @param str - The string to encode
- * @returns Base64URL encoded string
- */
-export function base64UrlEncode(str: string): string {
-  const bytes = new TextEncoder().encode(str);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-/**
- * Encode bytes to Base64URL format
- *
- * @param bytes - The bytes to encode
- * @returns Base64URL encoded string
- */
-export function base64UrlEncodeBytes(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-/**
- * Decode a Base64URL string to bytes
- *
- * @param str - The Base64URL string to decode
- * @returns Decoded bytes as Uint8Array
- */
-export function base64UrlDecodeBytes(str: string): Uint8Array {
-  // Add padding if needed
-  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (base64.length % 4) {
-    base64 += '=';
-  }
-
-  // Decode to binary string
-  const binary = atob(base64);
-
-  // Convert binary string to Uint8Array
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-
-  return bytes;
-}
-
-/**
- * Decode a Base64URL string
- *
- * NOTE: For proper UTF-8 roundtrip with base64UrlEncode(), this function
- * decodes the binary bytes back to a UTF-8 string using TextDecoder.
- *
- * @param str - The Base64URL string to decode
- * @returns Decoded UTF-8 string
- */
-export function base64UrlDecode(str: string): string {
-  const bytes = base64UrlDecodeBytes(str);
-  return new TextDecoder().decode(bytes);
-}
-
-/**
- * Convert a hex string to Uint8Array
- *
- * @param hex - The hex string
- * @returns Uint8Array of bytes
- */
-export function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-  }
-  return bytes;
-}
-
-/**
- * Convert Uint8Array to hex string
- *
- * @param bytes - The bytes to convert
- * @returns Hex string
- */
-export function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
+export {
+  base64UrlEncode,
+  base64UrlEncodeBytes,
+  base64UrlDecode,
+  base64UrlDecodeBytes,
+  hexToBytes,
+  bytesToHex,
+} from '@xivdyetools/crypto';
