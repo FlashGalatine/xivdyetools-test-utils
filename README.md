@@ -1,3 +1,5 @@
+# NOTICE! This repo has been DEPRECATED! For the latest updates to the XIV Dye Tools app, see the mono-repo here: https://github.com/FlashGalatine/xivdyetools
+
 # @xivdyetools/test-utils
 
 Shared testing utilities for the xivdyetools ecosystem. Provides mocks for Cloudflare Workers bindings, authentication helpers, domain object factories, and DOM utilities.
